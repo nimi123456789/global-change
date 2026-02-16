@@ -1,0 +1,23 @@
+{
+  "name": "global-change",
+  "version": "1.0.0",
+  "description": "Professional currency exchange platform with real-time rates and Web3 integration",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "currency-exchange",
+    "web3",
+    "fintech",
+    "blockchain",
+    "metamask"
+  ],
+  "author": "Global Change",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/global-change"
+  }
+}

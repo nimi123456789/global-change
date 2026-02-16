@@ -1,0 +1,1249 @@
+// ============================================
+// SOVEREIGN INFRASTRUCTURE PROTOCOL
+// ============================================
+
+// Simple SHA-256 implementation
+async function sha256(message) {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+class Block {
+    constructor(timestamp, transactions, previousHash = '') {
+        this.index = 0;
+        this.timestamp = timestamp;
+        this.transactions = transactions;
+        this.previousHash = previousHash;
+        this.hash = '';
+        this.nonce = 0;
+    }
+
+    async calculateHash() {
+        const data =
+            this.index +
+            this.previousHash +
+            this.timestamp +
+            JSON.stringify(this.transactions) +
+            this.nonce;
+        return await sha256(data);
+    }
+
+    async mineBlock() {
+        this.hash = await this.calculateHash();
+    }
+}
+
+class Blockchain {
+    constructor() {
+        this.chain = [];
+        this.pendingTransactions = [];
+        this.blockTime = 5000; // 5 seconds per block
+        this.lastBlockTime = Date.now();
+    }
+
+    async init() {
+        await this.createGenesisBlock();
+        this.loadChain();
+        this.startBlockMining();
+    }
+
+    async createGenesisBlock() {
+        const genesis = new Block(Date.now(), [], "0");
+        genesis.index = 0;
+        await genesis.mineBlock();
+        this.chain.push(genesis);
+    }
+
+    getLatestBlock() {
+        return this.chain[this.chain.length - 1];
+    }
+
+    addPendingTransaction(transaction) {
+        this.pendingTransactions.push(transaction);
+    }
+
+    async minePendingTransactions() {
+        if (this.pendingTransactions.length === 0) return;
+
+        const block = new Block(
+            Date.now(),
+            this.pendingTransactions,
+            this.getLatestBlock().hash
+        );
+
+        block.index = this.chain.length;
+        await block.mineBlock();
+
+        this.chain.push(block);
+        this.pendingTransactions = [];
+        this.lastBlockTime = Date.now();
+
+        this.saveChain();
+    }
+
+    startBlockMining() {
+        setInterval(async () => {
+            if (Date.now() - this.lastBlockTime >= this.blockTime) {
+                await this.minePendingTransactions();
+            }
+        }, 1000);
+    }
+
+    async isChainValid() {
+        for (let i = 1; i < this.chain.length; i++) {
+            const currentBlock = this.chain[i];
+            const previousBlock = this.chain[i - 1];
+
+            const recalculatedHash = await currentBlock.calculateHash();
+            if (currentBlock.hash !== recalculatedHash) {
+                return { valid: false, reason: `Block ${i} hash mismatch` };
+            }
+
+            if (currentBlock.previousHash !== previousBlock.hash) {
+                return { valid: false, reason: `Block ${i} chain broken` };
+            }
+        }
+        return { valid: true };
+    }
+
+    saveChain() {
+        localStorage.setItem('gc_blockchain', JSON.stringify(this.chain));
+    }
+
+    loadChain() {
+        const saved = localStorage.getItem('gc_blockchain');
+        if (saved) {
+            const data = JSON.parse(saved);
+            this.chain = data.map(b => {
+                const block = new Block(b.timestamp, b.transactions, b.previousHash);
+                block.index = b.index;
+                block.hash = b.hash;
+                block.nonce = b.nonce;
+                return block;
+            });
+        }
+    }
+}
+
+class CircuitBreaker {
+    constructor() {
+        this.withdrawalHistory = [];
+        this.THRESHOLD = 0.20; // 20%
+        this.WINDOW = 60000; // 60 seconds
+        this.isTripped = false;
+    }
+
+    recordWithdrawal(amount) {
+        this.withdrawalHistory.push({
+            amount,
+            timestamp: Date.now()
+        });
+
+        // Clean old entries
+        const cutoff = Date.now() - this.WINDOW;
+        this.withdrawalHistory = this.withdrawalHistory.filter(
+            w => w.timestamp > cutoff
+        );
+    }
+
+    checkTripCondition(totalLiquidity) {
+        const cutoff = Date.now() - this.WINDOW;
+        const recentWithdrawals = this.withdrawalHistory
+            .filter(w => w.timestamp > cutoff)
+            .reduce((sum, w) => sum + w.amount, 0);
+
+        const ratio = recentWithdrawals / totalLiquidity;
+
+        if (ratio > this.THRESHOLD) {
+            this.isTripped = true;
+            return {
+                tripped: true,
+                ratio: (ratio * 100).toFixed(2),
+                withdrawals: recentWithdrawals.toFixed(2),
+                liquidity: totalLiquidity.toFixed(2)
+            };
+        }
+
+        return { tripped: false };
+    }
+
+    reset() {
+        this.isTripped = false;
+        this.withdrawalHistory = [];
+    }
+}
+
+class LiquidityPool {
+    constructor(tokenA, tokenB) {
+        this.tokenA = tokenA;
+        this.tokenB = tokenB;
+        this.reserveA = 10000;
+        this.reserveB = 10000;
+        this.k = this.reserveA * this.reserveB;
+        this.lastUpdate = Date.now();
+    }
+
+    getSpotPrice(tokenIn) {
+        if (tokenIn === this.tokenA) {
+            return this.reserveB / this.reserveA;
+        }
+        return this.reserveA / this.reserveB;
+    }
+
+    getAmountOut(tokenIn, amountIn) {
+        let reserveIn, reserveOut;
+        if (tokenIn === this.tokenA) {
+            reserveIn = this.reserveA;
+            reserveOut = this.reserveB;
+        } else {
+            reserveIn = this.reserveB;
+            reserveOut = this.reserveA;
+        }
+
+        const amountOut = reserveOut - (this.k / (reserveIn + amountIn));
+        return amountOut;
+    }
+
+    swap(tokenIn, amountIn) {
+        const amountOut = this.getAmountOut(tokenIn, amountIn);
+
+        if (tokenIn === this.tokenA) {
+            this.reserveA += amountIn;
+            this.reserveB -= amountOut;
+        } else {
+            this.reserveB += amountIn;
+            this.reserveA -= amountOut;
+        }
+
+        this.lastUpdate = Date.now();
+        return amountOut;
+    }
+
+    addLiquidity(amountA, amountB) {
+        this.reserveA += amountA;
+        this.reserveB += amountB;
+        this.k = this.reserveA * this.reserveB;
+    }
+}
+
+class DoubleEntryLedger {
+    constructor() {
+        this.accounts = {
+            USER_ASSETS_USD: 0,
+            USER_ASSETS_EUR: 0,
+            USER_ASSETS_ILS: 0,
+            SYSTEM_VAULT_USD: 10000,
+            SYSTEM_VAULT_EUR: 10000,
+            SYSTEM_VAULT_ILS: 10000,
+            SYSTEM_LIABILITY_USD: 0,
+            SYSTEM_LIABILITY_EUR: 0,
+            SYSTEM_LIABILITY_ILS: 0,
+            FEE_INCOME_USD: 0,
+            FEE_INCOME_EUR: 0,
+            FEE_INCOME_ILS: 0,
+            SYSTEM_EQUITY: 30000
+        };
+
+        this.loadAccounts();
+    }
+
+    loadAccounts() {
+        const saved = localStorage.getItem('gc_accounts');
+        if (saved) {
+            this.accounts = JSON.parse(saved);
+        }
+    }
+
+    saveAccounts() {
+        localStorage.setItem('gc_accounts', JSON.stringify(this.accounts));
+    }
+
+    verifyBalance() {
+        const assets =
+            this.accounts.USER_ASSETS_USD +
+            this.accounts.USER_ASSETS_EUR +
+            this.accounts.USER_ASSETS_ILS +
+            this.accounts.SYSTEM_VAULT_USD +
+            this.accounts.SYSTEM_VAULT_EUR +
+            this.accounts.SYSTEM_VAULT_ILS;
+
+        const liabilities =
+            this.accounts.SYSTEM_LIABILITY_USD +
+            this.accounts.SYSTEM_LIABILITY_EUR +
+            this.accounts.SYSTEM_LIABILITY_ILS;
+
+        const equity =
+            this.accounts.FEE_INCOME_USD +
+            this.accounts.FEE_INCOME_EUR +
+            this.accounts.FEE_INCOME_ILS +
+            this.accounts.SYSTEM_EQUITY;
+
+        const difference = Math.abs(assets - (liabilities + equity));
+        return difference < 0.01;
+    }
+}
+
+class ACIDTransaction {
+    constructor(ledger, description) {
+        this.ledger = ledger;
+        this.description = description;
+        this.entries = [];
+        this.checkpoint = null;
+        this.state = 'PENDING';
+        this.id = this.generateTransactionId();
+        this.timestamp = new Date().toISOString();
+        this.userIdHash = '';
+    }
+
+    generateTransactionId() {
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 100000);
+        return `GC-${random.toString().padStart(5, '0')}`;
+    }
+
+    async setAnonymousUser(userId) {
+        this.userIdHash = await sha256(userId + this.timestamp);
+    }
+
+    createCheckpoint() {
+        return JSON.parse(JSON.stringify(this.ledger.accounts));
+    }
+
+    addEntry(account, amount) {
+        this.entries.push({ account, amount });
+    }
+
+    validate() {
+        const total = this.entries.reduce((sum, entry) => sum + entry.amount, 0);
+        return Math.abs(total) < 0.01;
+    }
+
+    commit() {
+        try {
+            this.checkpoint = this.createCheckpoint();
+
+            if (!this.validate()) {
+                throw new Error('Transaction does not balance');
+            }
+
+            this.entries.forEach(entry => {
+                this.ledger.accounts[entry.account] += entry.amount;
+            });
+
+            if (!this.ledger.verifyBalance()) {
+                throw new Error('Accounting equation violated');
+            }
+
+            this.ledger.saveAccounts();
+            this.state = 'COMMITTED';
+            return { success: true, id: this.id };
+
+        } catch (error) {
+            if (this.checkpoint) {
+                this.ledger.accounts = this.checkpoint;
+            }
+
+            this.state = 'FAILED';
+            return { success: false, error: error.message };
+        }
+    }
+
+    toBlockchainTransaction() {
+        return {
+            id: this.id,
+            timestamp: this.timestamp,
+            userHash: this.userIdHash,
+            description: this.description,
+            entriesHash: this.entries.map(e => `${e.account}:${e.amount.toFixed(2)}`).join('|'),
+            state: this.state
+        };
+    }
+}
+
+class SovereignProtocol {
+    constructor() {
+        this.ledger = new DoubleEntryLedger();
+
+        this.pools = {
+            'EUR_ILS': new LiquidityPool('EUR', 'ILS'),
+            'USD_ILS': new LiquidityPool('USD', 'ILS'),
+            'EUR_USD': new LiquidityPool('EUR', 'USD')
+        };
+
+        this.blockchain = new Blockchain();
+        this.circuitBreaker = new CircuitBreaker();
+
+        this.initializePools();
+
+        this.isLocked = false;
+        this.isFrozen = false;
+        this.collateralizationRatio = 100;
+        this.loadAdminSettings();
+
+        this.selectedLoadCurrency = null;
+        this.selectedFromCurrency = null;
+        this.selectedToCurrency = null;
+        this.currentPreview = null;
+
+        this.pulseInterval = null;
+        this.metricsInterval = null;
+
+        this.init();
+    }
+
+    async init() {
+        if (this.isLocked) {
+            this.showSystemLocked();
+            return;
+        }
+
+        await this.blockchain.init();
+        this.initializeStartingBalance();
+        this.updateCardDisplay();
+        this.attachEventListeners();
+        this.startHighFrequencyPulse();
+        this.startMetricsMonitoring();
+    }
+
+    initializePools() {
+        const eurIls = this.ledger.accounts.SYSTEM_VAULT_EUR;
+        const usdIls = this.ledger.accounts.SYSTEM_VAULT_USD;
+        const ilsEur = this.ledger.accounts.SYSTEM_VAULT_ILS / 2;
+        const ilsUsd = this.ledger.accounts.SYSTEM_VAULT_ILS / 2;
+
+        this.pools['EUR_ILS'].addLiquidity(eurIls, ilsEur);
+        this.pools['USD_ILS'].addLiquidity(usdIls, ilsUsd);
+        this.pools['EUR_USD'].addLiquidity(1000, 1000);
+    }
+
+    // ============================================
+    // INCENTIVE ENGINE
+    // ============================================
+
+    calculateIncentiveFee(currency, isDeposit) {
+        const reserves = this.ledger.accounts[`SYSTEM_VAULT_${currency}`];
+
+        // Calculate total reserves in normalized units
+        const totalReserves =
+            this.ledger.accounts.SYSTEM_VAULT_USD +
+            this.ledger.accounts.SYSTEM_VAULT_EUR +
+            this.ledger.accounts.SYSTEM_VAULT_ILS;
+
+        const reserveRatio = reserves / totalReserves;
+
+        if (isDeposit) {
+            // Low reserves? Incentivize deposits with lower fees
+            if (reserveRatio < 0.15) {
+                return 0; // FREE deposits!
+            } else if (reserveRatio < 0.25) {
+                return 0.1; // 0.1% fee
+            } else if (reserveRatio < 0.35) {
+                return 0.2; // 0.2% fee
+            }
+            return 0.3; // Normal fee
+        } else {
+            // Withdrawing from low reserves? Discourage with higher fees
+            if (reserveRatio < 0.15) {
+                return 1.5; // 1.5% penalty
+            } else if (reserveRatio < 0.25) {
+                return 1.0; // 1.0% fee
+            }
+            return 0.5; // Normal fee
+        }
+    }
+
+    getReserveStatus(currency) {
+        const reserves = this.ledger.accounts[`SYSTEM_VAULT_${currency}`];
+        const totalReserves =
+            this.ledger.accounts.SYSTEM_VAULT_USD +
+            this.ledger.accounts.SYSTEM_VAULT_EUR +
+            this.ledger.accounts.SYSTEM_VAULT_ILS;
+
+        const ratio = reserves / totalReserves;
+
+        if (ratio < 0.15) return 'CRITICAL';
+        if (ratio < 0.25) return 'LOW';
+        if (ratio < 0.35) return 'MEDIUM';
+        return 'HEALTHY';
+    }
+
+    // ============================================
+    // CIRCUIT BREAKER
+    // ============================================
+
+    startMetricsMonitoring() {
+        this.metricsInterval = setInterval(() => {
+            const totalLiquidity =
+                this.ledger.accounts.SYSTEM_VAULT_USD +
+                this.ledger.accounts.SYSTEM_VAULT_EUR +
+                this.ledger.accounts.SYSTEM_VAULT_ILS;
+
+            const status = this.circuitBreaker.checkTripCondition(totalLiquidity);
+
+            if (status.tripped) {
+                this.freezeSystem(status);
+            }
+
+            // Update admin metrics if modal is open
+            const adminModal = document.getElementById('admin-modal');
+            if (adminModal && adminModal.classList.contains('active')) {
+                this.updateAdminMetrics();
+            }
+        }, 1000); // Check every second
+    }
+
+    freezeSystem(status) {
+        this.isFrozen = true;
+        clearInterval(this.metricsInterval);
+        clearInterval(this.pulseInterval);
+
+        alert(`
+🚨 EMERGENCY CIRCUIT BREAKER TRIGGERED
+
+Reason: Bank run detected
+Withdrawals: ${status.withdrawals} (${status.ratio}% of liquidity)
+Total Liquidity: ${status.liquidity}
+Time Window: 60 seconds
+
+System is FROZEN to protect user funds.
+        `);
+
+        const overlay = document.createElement('div');
+        overlay.id = 'freeze-overlay';
+        overlay.innerHTML = `
+            <div class="freeze-modal">
+                <h1>🚨 SYSTEM FROZEN</h1>
+                <p>EMERGENCY CIRCUIT BREAKER ACTIVATED</p>
+                <div class="freeze-stats">
+                    <div>Withdrawal Rate: ${status.ratio}%</div>
+                    <div>Threshold: 20%</div>
+                    <div>Status: BREAKER TRIPPED</div>
+                </div>
+                <button onclick="window.app.unfreezeSystem()" class="unfreeze-btn">
+                    Admin Override
+                </button>
+            </div>
+        `;
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 59, 48, 0.95);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    unfreezeSystem() {
+        this.isFrozen = false;
+        this.circuitBreaker.reset();
+
+        const overlay = document.getElementById('freeze-overlay');
+        if (overlay) overlay.remove();
+
+        this.startMetricsMonitoring();
+        this.startHighFrequencyPulse();
+    }
+
+    // ============================================
+    // HIGH-FREQUENCY PULSE
+    // ============================================
+
+    startHighFrequencyPulse() {
+        this.pulseInterval = setInterval(() => {
+            this.updateLiveMetrics();
+        }, 100);
+    }
+
+    updateLiveMetrics() {
+        const eurIlsPrice = this.pools['EUR_ILS'].getSpotPrice('EUR');
+        const usdIlsPrice = this.pools['USD_ILS'].getSpotPrice('USD');
+
+        const fluctuation = (Math.random() - 0.5) * 0.001;
+
+        const eurIlsEl = document.getElementById('pool-eur-ils');
+        const usdIlsEl = document.getElementById('pool-usd-ils');
+
+        if (eurIlsEl) {
+            eurIlsEl.textContent = (eurIlsPrice + fluctuation).toFixed(8);
+        }
+        if (usdIlsEl) {
+            usdIlsEl.textContent = (usdIlsPrice + fluctuation).toFixed(8);
+        }
+
+        // Update block height
+        const blockEl = document.getElementById('block-height');
+        if (blockEl) {
+            blockEl.textContent = this.blockchain.chain.length;
+        }
+    }
+
+    // ============================================
+    // ADMIN SETTINGS
+    // ============================================
+
+    loadAdminSettings() {
+        const saved = localStorage.getItem('gc_admin_settings');
+        if (saved) {
+            const settings = JSON.parse(saved);
+            this.collateralizationRatio = settings.collateralizationRatio || 100;
+        }
+    }
+
+    saveAdminSettings() {
+        localStorage.setItem('gc_admin_settings', JSON.stringify({
+            collateralizationRatio: this.collateralizationRatio
+        }));
+    }
+
+    updateCollateralizationRatio(ratio) {
+        this.collateralizationRatio = Math.max(1, Math.min(200, ratio));
+        this.saveAdminSettings();
+    }
+
+    // ============================================
+    // BLOCKCHAIN VERIFICATION
+    // ============================================
+
+    async verifyBlockchain() {
+        const result = await this.blockchain.isChainValid();
+        const statusEl = document.getElementById('chain-status');
+
+        if (statusEl) {
+            if (result.valid) {
+                statusEl.className = 'chain-status valid';
+                statusEl.textContent = `✓ CHAIN_VERIFIED | ${this.blockchain.chain.length} BLOCKS | INTEGRITY_INTACT`;
+            } else {
+                statusEl.className = 'chain-status invalid';
+                statusEl.textContent = `✗ CHAIN_COMPROMISED | ${result.reason || 'UNKNOWN_ERROR'}`;
+            }
+
+            // Hide after 5 seconds
+            setTimeout(() => {
+                if (statusEl) statusEl.style.display = 'none';
+            }, 5000);
+        }
+
+        return result.valid;
+    }
+
+    // ============================================
+    // AMM EXCHANGE
+    // ============================================
+
+    async initializeStartingBalance() {
+        const initialized = localStorage.getItem('gc_institutional_initialized');
+        if (!initialized) {
+            const tx = new ACIDTransaction(this.ledger, 'Initial welcome bonus');
+            await tx.setAnonymousUser('system_user');
+            tx.addEntry('USER_ASSETS_EUR', 1000);
+            tx.addEntry('SYSTEM_LIABILITY_EUR', 1000);
+            const result = tx.commit();
+
+            if (result.success) {
+                this.blockchain.addPendingTransaction(tx.toBlockchainTransaction());
+            }
+
+            localStorage.setItem('gc_institutional_initialized', 'true');
+        }
+    }
+
+    getPoolKey(fromCurrency, toCurrency) {
+        const pairs = [
+            ['EUR', 'ILS'],
+            ['USD', 'ILS'],
+            ['EUR', 'USD']
+        ];
+
+        for (const pair of pairs) {
+            if ((pair[0] === fromCurrency && pair[1] === toCurrency) ||
+                (pair[1] === fromCurrency && pair[0] === toCurrency)) {
+                return `${pair[0]}_${pair[1]}`;
+            }
+        }
+
+        return null;
+    }
+
+    calculateExchangePreview(amount, fromCurrency, toCurrency) {
+        if (!amount || amount <= 0 || fromCurrency === toCurrency) {
+            return null;
+        }
+
+        const poolKey = this.getPoolKey(fromCurrency, toCurrency);
+        if (!poolKey) return null;
+
+        const pool = this.pools[poolKey];
+        const spotPrice = pool.getSpotPrice(fromCurrency);
+        const amountOut = pool.getAmountOut(fromCurrency, amount);
+
+        const effectiveRate = amountOut / amount;
+        const slippage = ((spotPrice - effectiveRate) / spotPrice) * 100;
+
+        // Get incentive fee
+        const depositFee = this.calculateIncentiveFee(toCurrency, true);
+        const reserveStatus = this.getReserveStatus(toCurrency);
+
+        return {
+            amount,
+            fromCurrency,
+            toCurrency,
+            spotPrice,
+            amountOut,
+            effectiveRate,
+            slippage: Math.abs(slippage),
+            poolKey,
+            depositFee,
+            reserveStatus
+        };
+    }
+
+    updateExchangePreview() {
+        const amount = parseFloat(document.getElementById('exchange-amount').value);
+        const fromCurrency = this.selectedFromCurrency;
+        const toCurrency = this.selectedToCurrency;
+
+        const previewEl = document.getElementById('exchange-preview');
+
+        if (!amount || !fromCurrency || !toCurrency || fromCurrency === toCurrency) {
+            previewEl.style.display = 'none';
+            this.currentPreview = null;
+            return;
+        }
+
+        const preview = this.calculateExchangePreview(amount, fromCurrency, toCurrency);
+        this.currentPreview = preview;
+
+        if (preview) {
+            const poolKey = preview.poolKey;
+            const pool = this.pools[poolKey];
+
+            const statusColor = {
+                'CRITICAL': '#ff3b30',
+                'LOW': '#ff9f0a',
+                'MEDIUM': '#34c759',
+                'HEALTHY': '#00c7be'
+            }[preview.reserveStatus];
+
+            previewEl.style.display = 'block';
+            previewEl.innerHTML = `
+                <div class="terminal-preview">
+                    <div class="terminal-row">
+                        <span>SPOT_PRICE</span>
+                        <span>${preview.spotPrice.toFixed(8)}</span>
+                    </div>
+                    <div class="terminal-row">
+                        <span>AMOUNT_OUT</span>
+                        <span>${preview.amountOut.toFixed(8)}</span>
+                    </div>
+                    <div class="terminal-row">
+                        <span>SLIPPAGE</span>
+                        <span>${preview.slippage.toFixed(4)}%</span>
+                    </div>
+                    <div class="terminal-row">
+                        <span>RESERVE_${toCurrency}</span>
+                        <span style="color: ${statusColor}">${preview.reserveStatus}</span>
+                    </div>
+                    <div class="terminal-row">
+                        <span>INCENTIVE_FEE</span>
+                        <span>${preview.depositFee.toFixed(2)}%</span>
+                    </div>
+                    <div class="terminal-row">
+                        <span>POOL_LIQUIDITY</span>
+                        <span>${poolKey}</span>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    async executeLoad() {
+        if (this.isFrozen) {
+            alert('SYSTEM FROZEN - Circuit breaker active');
+            return;
+        }
+
+        const amount = parseFloat(document.getElementById('load-amount').value);
+        const currency = this.selectedLoadCurrency;
+
+        if (!amount || amount <= 0 || !currency) return;
+
+        const tx = new ACIDTransaction(this.ledger, `Load ${amount} ${currency}`);
+        await tx.setAnonymousUser('user_' + Date.now());
+        tx.addEntry(`USER_ASSETS_${currency}`, amount);
+        tx.addEntry(`SYSTEM_LIABILITY_${currency}`, amount);
+
+        const result = tx.commit();
+
+        if (result.success) {
+            this.blockchain.addPendingTransaction(tx.toBlockchainTransaction());
+            this.triggerHapticFeedback();
+            this.updateCardDisplay();
+            this.hideLoadModal();
+        } else {
+            alert('TX_FAILED: ' + result.error);
+        }
+    }
+
+    async executeExchange() {
+        if (this.isFrozen) {
+            alert('SYSTEM FROZEN - Circuit breaker active');
+            return;
+        }
+
+        const amount = parseFloat(document.getElementById('exchange-amount').value);
+        const fromCurrency = this.selectedFromCurrency;
+        const toCurrency = this.selectedToCurrency;
+
+        if (!amount || amount <= 0 || !fromCurrency || !toCurrency || fromCurrency === toCurrency) {
+            return;
+        }
+
+        const userAsset = this.ledger.accounts[`USER_ASSETS_${fromCurrency}`];
+        if (userAsset < amount) {
+            alert('INSUFFICIENT_BALANCE');
+            return;
+        }
+
+        // Record for circuit breaker
+        this.circuitBreaker.recordWithdrawal(amount);
+
+        const poolKey = this.getPoolKey(fromCurrency, toCurrency);
+        if (!poolKey) {
+            alert('NO_LIQUIDITY_POOL');
+            return;
+        }
+
+        const pool = this.pools[poolKey];
+        const receiveAmount = pool.getAmountOut(fromCurrency, amount);
+
+        const tx = new ACIDTransaction(this.ledger, `Swap ${amount} ${fromCurrency}`);
+        await tx.setAnonymousUser('user_' + Date.now());
+
+        tx.addEntry(`USER_ASSETS_${fromCurrency}`, -amount);
+        tx.addEntry(`SYSTEM_LIABILITY_${fromCurrency}`, -amount);
+        tx.addEntry(`USER_ASSETS_${toCurrency}`, receiveAmount);
+        tx.addEntry(`SYSTEM_LIABILITY_${toCurrency}`, receiveAmount);
+        tx.addEntry(`SYSTEM_VAULT_${fromCurrency}`, amount);
+        tx.addEntry(`SYSTEM_VAULT_${toCurrency}`, -receiveAmount);
+
+        const result = tx.commit();
+
+        if (result.success) {
+            pool.swap(fromCurrency, amount);
+            this.blockchain.addPendingTransaction(tx.toBlockchainTransaction());
+            this.triggerHapticFeedback();
+            this.updateCardDisplay();
+            this.hideExchangeModal();
+        } else {
+            alert('TX_FAILED: ' + result.error);
+        }
+    }
+
+    updateCardDisplay() {
+        let totalILS = 0;
+
+        for (const currency of ['USD', 'EUR', 'ILS']) {
+            const balance = this.ledger.accounts[`USER_ASSETS_${currency}`];
+
+            let rate = 1;
+            if (currency !== 'ILS') {
+                const poolKey = this.getPoolKey(currency, 'ILS');
+                if (poolKey) {
+                    rate = this.pools[poolKey].getSpotPrice(currency);
+                }
+            }
+
+            totalILS += balance * rate;
+        }
+
+        const cardEl = document.getElementById('card-balance');
+        if (cardEl) {
+            cardEl.textContent = totalILS.toFixed(8);
+        }
+    }
+
+    // ============================================
+    // ADMIN PANEL
+    // ============================================
+
+    showAdminModal() {
+        document.getElementById('admin-modal').classList.add('active');
+        this.updateAdminMetrics();
+    }
+
+    hideAdminModal() {
+        document.getElementById('admin-modal').classList.remove('active');
+    }
+
+    async updateAdminMetrics() {
+        // Update blockchain metrics
+        const blockHeight = document.getElementById('block-height');
+        const pendingTxs = document.getElementById('pending-txs');
+        const chainHash = document.getElementById('chain-hash');
+
+        if (blockHeight) blockHeight.textContent = this.blockchain.chain.length;
+        if (pendingTxs) pendingTxs.textContent = this.blockchain.pendingTransactions.length;
+        if (chainHash && this.blockchain.chain.length > 0) {
+            const latestHash = this.blockchain.getLatestBlock().hash;
+            chainHash.textContent = latestHash.substring(0, 16) + '...';
+        }
+
+        // Update circuit breaker status
+        const circuitIndicator = document.getElementById('circuit-indicator');
+        const circuitStatusText = document.getElementById('circuit-status-text');
+        const withdrawalRate = document.getElementById('withdrawal-rate');
+
+        if (this.isFrozen) {
+            if (circuitIndicator) circuitIndicator.classList.add('tripped');
+            if (circuitStatusText) circuitStatusText.textContent = 'SYSTEM_FROZEN';
+        } else {
+            if (circuitIndicator) circuitIndicator.classList.remove('tripped');
+            if (circuitStatusText) circuitStatusText.textContent = 'OPERATIONAL';
+        }
+
+        // Calculate withdrawal rate
+        const totalLiquidity = this.ledger.accounts.SYSTEM_VAULT_USD +
+                              this.ledger.accounts.SYSTEM_VAULT_EUR +
+                              this.ledger.accounts.SYSTEM_VAULT_ILS;
+
+        const cutoff = Date.now() - this.circuitBreaker.WINDOW;
+        const recentWithdrawals = this.circuitBreaker.withdrawalHistory
+            .filter(w => w.timestamp > cutoff)
+            .reduce((sum, w) => sum + w.amount, 0);
+
+        const rate = totalLiquidity > 0 ? (recentWithdrawals / totalLiquidity * 100) : 0;
+        if (withdrawalRate) withdrawalRate.textContent = rate.toFixed(2) + '%';
+
+        // Update reserve statuses for each currency
+        const currencies = ['USD', 'EUR', 'ILS'];
+        currencies.forEach(currency => {
+            const status = this.getReserveStatus(currency);
+            const statusEl = document.getElementById(`reserve-status-${currency.toLowerCase()}`);
+            const ratioEl = document.getElementById(`reserve-ratio-${currency.toLowerCase()}`);
+
+            if (statusEl) {
+                statusEl.textContent = status;
+                statusEl.setAttribute('data-status', status);
+            }
+
+            // Calculate actual reserve ratio
+            const reserves = this.ledger.accounts[`SYSTEM_VAULT_${currency}`];
+            const totalReserves = this.ledger.accounts.SYSTEM_VAULT_USD +
+                                this.ledger.accounts.SYSTEM_VAULT_EUR +
+                                this.ledger.accounts.SYSTEM_VAULT_ILS;
+            const ratio = totalReserves > 0 ? (reserves / totalReserves * 100) : 0;
+
+            if (ratioEl) ratioEl.textContent = ratio.toFixed(1) + '%';
+        });
+    }
+
+    async runStressTest() {
+        if (this.isFrozen) {
+            alert('SYSTEM FROZEN - Cannot run stress test');
+            return;
+        }
+
+        const startTime = Date.now();
+        let successCount = 0;
+        let failCount = 0;
+
+        // Run 1000 transactions
+        for (let i = 0; i < 1000; i++) {
+            const currencies = ['USD', 'EUR', 'ILS'];
+            const fromCurrency = currencies[Math.floor(Math.random() * currencies.length)];
+            const toCurrency = currencies[Math.floor(Math.random() * currencies.length)];
+
+            if (fromCurrency === toCurrency) continue;
+
+            const amount = Math.random() * 10 + 1;
+
+            const tx = new ACIDTransaction(this.ledger, `Stress test TX ${i}`);
+            await tx.setAnonymousUser(`stress_user_${i}`);
+
+            try {
+                // Add to user assets
+                tx.addEntry(`USER_ASSETS_${fromCurrency}`, amount);
+                tx.addEntry(`SYSTEM_LIABILITY_${fromCurrency}`, amount);
+
+                const result = tx.commit();
+
+                if (result.success) {
+                    this.blockchain.addPendingTransaction(tx.toBlockchainTransaction());
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (e) {
+                failCount++;
+            }
+        }
+
+        const endTime = Date.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(2);
+
+        alert(`
+STRESS TEST COMPLETE
+
+Transactions: 1000
+Success: ${successCount}
+Failed: ${failCount}
+Duration: ${duration}s
+TPS: ${(1000 / duration).toFixed(2)}
+
+Ledger Balance: ${this.ledger.getTotalBalance().toFixed(8)}
+Blocks: ${this.blockchain.chain.length}
+Pending: ${this.blockchain.pendingTransactions.length}
+        `);
+
+        this.updateAdminMetrics();
+    }
+
+    generateBalanceSheet() {
+        const timestamp = new Date().toISOString();
+
+        // Assets
+        const userAssetsUSD = this.ledger.accounts.USER_ASSETS_USD || 0;
+        const userAssetsEUR = this.ledger.accounts.USER_ASSETS_EUR || 0;
+        const userAssetsILS = this.ledger.accounts.USER_ASSETS_ILS || 0;
+        const totalAssets = userAssetsUSD + userAssetsEUR + userAssetsILS;
+
+        // Liabilities
+        const liabilityUSD = this.ledger.accounts.SYSTEM_LIABILITY_USD || 0;
+        const liabilityEUR = this.ledger.accounts.SYSTEM_LIABILITY_EUR || 0;
+        const liabilityILS = this.ledger.accounts.SYSTEM_LIABILITY_ILS || 0;
+        const totalLiabilities = liabilityUSD + liabilityEUR + liabilityILS;
+
+        // Equity (System Vault)
+        const vaultUSD = this.ledger.accounts.SYSTEM_VAULT_USD || 0;
+        const vaultEUR = this.ledger.accounts.SYSTEM_VAULT_EUR || 0;
+        const vaultILS = this.ledger.accounts.SYSTEM_VAULT_ILS || 0;
+        const totalVault = vaultUSD + vaultEUR + vaultILS;
+
+        // Profit
+        const profitUSD = this.ledger.accounts.SYSTEM_PROFIT_USD || 0;
+        const profitEUR = this.ledger.accounts.SYSTEM_PROFIT_EUR || 0;
+        const profitILS = this.ledger.accounts.SYSTEM_PROFIT_ILS || 0;
+        const totalProfit = profitUSD + profitEUR + profitILS;
+
+        // Generate CSV
+        let csv = 'ADASHA MEKOMIT - BALANCE SHEET\n';
+        csv += `Generated: ${timestamp}\n`;
+        csv += `Blockchain Height: ${this.blockchain.chain.length}\n`;
+        csv += `Circuit Breaker: ${this.isFrozen ? 'TRIPPED' : 'OPERATIONAL'}\n\n`;
+
+        csv += 'ASSETS\n';
+        csv += 'Account,Amount\n';
+        csv += `USER_ASSETS_USD,${userAssetsUSD.toFixed(8)}\n`;
+        csv += `USER_ASSETS_EUR,${userAssetsEUR.toFixed(8)}\n`;
+        csv += `USER_ASSETS_ILS,${userAssetsILS.toFixed(8)}\n`;
+        csv += `TOTAL ASSETS,${totalAssets.toFixed(8)}\n\n`;
+
+        csv += 'LIABILITIES\n';
+        csv += 'Account,Amount\n';
+        csv += `SYSTEM_LIABILITY_USD,${liabilityUSD.toFixed(8)}\n`;
+        csv += `SYSTEM_LIABILITY_EUR,${liabilityEUR.toFixed(8)}\n`;
+        csv += `SYSTEM_LIABILITY_ILS,${liabilityILS.toFixed(8)}\n`;
+        csv += `TOTAL LIABILITIES,${totalLiabilities.toFixed(8)}\n\n`;
+
+        csv += 'EQUITY\n';
+        csv += 'Account,Amount\n';
+        csv += `SYSTEM_VAULT_USD,${vaultUSD.toFixed(8)}\n`;
+        csv += `SYSTEM_VAULT_EUR,${vaultEUR.toFixed(8)}\n`;
+        csv += `SYSTEM_VAULT_ILS,${vaultILS.toFixed(8)}\n`;
+        csv += `SYSTEM_PROFIT_USD,${profitUSD.toFixed(8)}\n`;
+        csv += `SYSTEM_PROFIT_EUR,${profitEUR.toFixed(8)}\n`;
+        csv += `SYSTEM_PROFIT_ILS,${profitILS.toFixed(8)}\n`;
+        csv += `TOTAL EQUITY,${(totalVault + totalProfit).toFixed(8)}\n\n`;
+
+        csv += 'VERIFICATION\n';
+        csv += `Ledger Balance: ${this.ledger.getTotalBalance().toFixed(8)}\n`;
+        csv += `Assets = Liabilities + Equity: ${(Math.abs(totalAssets - (totalLiabilities + totalVault + totalProfit)) < 0.0001 ? 'BALANCED' : 'ERROR')}\n`;
+
+        // Download
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `balance-sheet-${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // ============================================
+    // UI CONTROLS
+    // ============================================
+
+    triggerHapticFeedback() {
+        const container = document.querySelector('.app-container');
+        container.classList.add('haptic-feedback');
+        setTimeout(() => container.classList.remove('haptic-feedback'), 600);
+        if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+    }
+
+    showLoadModal() {
+        document.getElementById('load-modal').classList.add('active');
+        this.selectedLoadCurrency = null;
+        document.getElementById('load-amount').value = '';
+        document.querySelectorAll('#load-modal .currency-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        document.getElementById('confirm-load').disabled = true;
+    }
+
+    hideLoadModal() {
+        document.getElementById('load-modal').classList.remove('active');
+    }
+
+    selectLoadCurrency(currency) {
+        this.selectedLoadCurrency = currency;
+        document.querySelectorAll('#load-modal .currency-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        document.querySelector(`#load-modal [data-currency="${currency}"]`).classList.add('selected');
+        this.checkLoadForm();
+    }
+
+    checkLoadForm() {
+        const amount = parseFloat(document.getElementById('load-amount').value);
+        const confirmBtn = document.getElementById('confirm-load');
+        confirmBtn.disabled = !(amount > 0 && this.selectedLoadCurrency);
+    }
+
+    showExchangeModal() {
+        document.getElementById('exchange-modal').classList.add('active');
+        this.selectedFromCurrency = null;
+        this.selectedToCurrency = null;
+        this.currentPreview = null;
+        document.getElementById('exchange-amount').value = '';
+        document.querySelectorAll('#exchange-modal .currency-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        document.getElementById('confirm-exchange').disabled = true;
+        document.getElementById('exchange-preview').style.display = 'none';
+    }
+
+    hideExchangeModal() {
+        document.getElementById('exchange-modal').classList.remove('active');
+    }
+
+    selectFromCurrency(currency) {
+        this.selectedFromCurrency = currency;
+        document.querySelectorAll('#exchange-modal [data-from]').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        document.querySelector(`#exchange-modal [data-from="${currency}"]`).classList.add('selected');
+        this.checkExchangeForm();
+        this.updateExchangePreview();
+    }
+
+    selectToCurrency(currency) {
+        this.selectedToCurrency = currency;
+        document.querySelectorAll('#exchange-modal [data-to]').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        document.querySelector(`#exchange-modal [data-to="${currency}"]`).classList.add('selected');
+        this.checkExchangeForm();
+        this.updateExchangePreview();
+    }
+
+    checkExchangeForm() {
+        const amount = parseFloat(document.getElementById('exchange-amount').value);
+        const confirmBtn = document.getElementById('confirm-exchange');
+        confirmBtn.disabled = !(
+            amount > 0 &&
+            this.selectedFromCurrency &&
+            this.selectedToCurrency &&
+            this.selectedFromCurrency !== this.selectedToCurrency
+        );
+    }
+
+    showSystemLocked() {
+        document.body.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #000; color: #ff3b30; font-family: 'Courier New', monospace; padding: 20px; text-align: center;">
+                <div>
+                    <h1 style="font-size: 3em; margin-bottom: 20px;">SYSTEM_LOCKED</h1>
+                    <p style="font-size: 1.2em;">INTEGRITY_BREACH_DETECTED</p>
+                    <button onclick="localStorage.clear(); window.location.reload();"
+                            style="margin-top: 30px; padding: 15px 30px; background: #ff3b30; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; font-family: 'Courier New', monospace;">
+                        ADMIN_OVERRIDE
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // ============================================
+    // EVENT LISTENERS
+    // ============================================
+
+    attachEventListeners() {
+        document.getElementById('load-btn').onclick = () => this.showLoadModal();
+        document.getElementById('exchange-btn').onclick = () => this.showExchangeModal();
+
+        document.getElementById('close-load').onclick = () => this.hideLoadModal();
+        document.getElementById('load-amount').oninput = () => this.checkLoadForm();
+        document.querySelectorAll('#load-modal .currency-btn').forEach(btn => {
+            btn.onclick = () => this.selectLoadCurrency(btn.dataset.currency);
+        });
+        document.getElementById('confirm-load').onclick = () => this.executeLoad();
+
+        document.getElementById('close-exchange').onclick = () => this.hideExchangeModal();
+        document.getElementById('exchange-amount').oninput = () => {
+            this.checkExchangeForm();
+            this.updateExchangePreview();
+        };
+        document.querySelectorAll('#exchange-modal [data-from]').forEach(btn => {
+            btn.onclick = () => this.selectFromCurrency(btn.dataset.from);
+        });
+        document.querySelectorAll('#exchange-modal [data-to]').forEach(btn => {
+            btn.onclick = () => this.selectToCurrency(btn.dataset.to);
+        });
+        document.getElementById('confirm-exchange').onclick = () => this.executeExchange();
+
+        document.getElementById('admin-trigger').onclick = () => this.showAdminModal();
+        document.getElementById('close-admin').onclick = () => this.hideAdminModal();
+
+        const verifyBtn = document.getElementById('verify-chain-btn');
+        if (verifyBtn) {
+            verifyBtn.onclick = () => this.verifyBlockchain();
+        }
+
+        const stressTestBtn = document.getElementById('stress-test-btn');
+        if (stressTestBtn) {
+            stressTestBtn.onclick = () => this.runStressTest();
+        }
+
+        const downloadSheetBtn = document.getElementById('download-balance-sheet');
+        if (downloadSheetBtn) {
+            downloadSheetBtn.onclick = () => this.generateBalanceSheet();
+        }
+
+        const collateralRatio = document.getElementById('collateral-ratio');
+        const collateralValue = document.getElementById('collateral-value');
+        if (collateralRatio && collateralValue) {
+            collateralRatio.oninput = (e) => {
+                collateralValue.textContent = e.target.value + '%';
+            };
+        }
+    }
+}
+
+// Initialize
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', async () => {
+        window.app = new SovereignProtocol();
+    });
+} else {
+    window.app = new SovereignProtocol();
+}
