@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Change - Login</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo-section">
+                <svg class="logo-icon" viewBox="0 0 50 50" width="60" height="60">
+                    <circle cx="25" cy="25" r="22" fill="url(#gradient1)" />
+                    <path d="M 15 25 L 25 15 L 35 25 L 25 35 Z" fill="white" opacity="0.9"/>
+                    <circle cx="25" cy="25" r="5" fill="white"/>
+                    <defs>
+                        <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#0091ff;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1 class="brand-name">Global Change</h1>
+                <p class="brand-subtitle">Secure Multi-Currency Exchange</p>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" id="login-tab">Login</button>
+                <button class="tab-btn" id="signup-tab">Sign Up</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" placeholder="Enter your username" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="auth-btn">
+                    <span>🔐</span> Login to Dashboard
+                </button>
+                <div class="error-message" id="login-error"></div>
+            </form>
+
+            <!-- Signup Form -->
+            <form id="signup-form" class="auth-form hidden">
+                <div class="form-group">
+                    <label for="signup-username">Username</label>
+                    <input type="text" id="signup-username" placeholder="Choose a username" required minlength="3">
+                </div>
+                <div class="form-group">
+                    <label for="signup-password">Password</label>
+                    <input type="password" id="signup-password" placeholder="Choose a strong password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="signup-confirm">Confirm Password</label>
+                    <input type="password" id="signup-confirm" placeholder="Confirm your password" required>
+                </div>
+                <button type="submit" class="auth-btn">
+                    <span>✨</span> Create Account
+                </button>
+                <div class="error-message" id="signup-error"></div>
+            </form>
+
+            <div class="demo-hint">
+                <p>💡 Demo: Use username <strong>demo</strong> with password <strong>demo123</strong></p>
+                <p>Or create your own secure account</p>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature-item">
+                <span class="feature-icon">🔒</span>
+                <h3>Secure Authentication</h3>
+                <p>Password-protected accounts</p>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">📊</span>
+                <h3>Live Market Data</h3>
+                <p>Real-time exchange rates</p>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">🤝</span>
+                <h3>P2P Trading</h3>
+                <p>Trade directly with others</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+</body>
+</html>

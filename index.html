@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Change - Send Money Internationally</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-container">
+            <div class="logo">
+                <span class="logo-icon">🌍</span>
+                <span class="logo-text">Global Change</span>
+            </div>
+            <nav class="main-nav">
+                <a href="#" class="nav-link active">Send Money</a>
+                <a href="#" class="nav-link" id="card-link">My Card</a>
+                <a href="#" class="nav-link" id="admin-trigger">Admin</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Converter Section -->
+        <div class="converter-section">
+            <h1 class="page-title">Send Money at the Real Exchange Rate</h1>
+            <p class="page-subtitle">Join millions saving on international transfers</p>
+
+            <!-- Currency Converter -->
+            <div class="converter-card">
+                <!-- Amount Input -->
+                <div class="converter-row">
+                    <div class="converter-label">You send</div>
+                    <div class="converter-input-group">
+                        <input type="number" id="send-amount" class="converter-input" value="1000" placeholder="1,000">
+                        <div class="currency-dropdown" id="send-currency-dropdown">
+                            <button class="currency-btn-main" id="send-currency-btn">
+                                <span class="flag-icon">🇪🇺</span>
+                                <span class="currency-code">EUR</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </button>
+                            <div class="currency-menu" id="send-currency-menu">
+                                <div class="currency-option" data-currency="EUR">
+                                    <span class="flag-icon">🇪🇺</span>
+                                    <span class="currency-info">
+                                        <span class="currency-code">EUR</span>
+                                        <span class="currency-name">Euro</span>
+                                    </span>
+                                </div>
+                                <div class="currency-option" data-currency="USD">
+                                    <span class="flag-icon">🇺🇸</span>
+                                    <span class="currency-info">
+                                        <span class="currency-code">USD</span>
+                                        <span class="currency-name">US Dollar</span>
+                                    </span>
+                                </div>
+                                <div class="currency-option" data-currency="GBP">
+                                    <span class="flag-icon">🇬🇧</span>
+                                    <span class="currency-info">
+                                        <span class="currency-code">GBP</span>
+                                        <span class="currency-name">British Pound</span>
+                                    </span>
+                                </div>
+                                <div class="currency-option" data-currency="ILS">
+                                    <span class="flag-icon">🇮🇱</span>
+                                    <span class="currency-info">
+                                        <span class="currency-code">ILS</span>
+                                        <span class="currency-name">Israeli Shekel</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Rate Display -->
+                <div class="rate-display">
+                    <div class="rate-info">
+                        <span class="rate-label">Live Rate</span>
+                        <span class="rate-value" id="live-rate">1 EUR = 4.0234 ILS</span>
+                    </div>
+                    <div class="rate-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Updated now</span>
+                    </div>
+                </div>
+
+                <!-- Amount Output -->
+                <div class="converter-row">
+                    <div class="converter-label">Recipient gets</div>
+                    <div class="converter-input-group">
+                        <input type="text" id="receive-amount" class="converter-input receive" value="4,023.40" readonly>
+                        <div class="currency-dropdown" id="receive-currency-dropdown">
+                            <button class="currency-btn-main" id="receive-currency-btn">
+                                <span class="flag-icon">🇮🇱</span>
+                                <span class="currency-code">ILS</span>
+                                <span class="dropdown-arrow">▼</span>
+                            </button>
+                            <div class="currency-menu" id="receive-currency-menu">
+                                <div class="currency-option" data-currency="ILS">
+                                    <span class="flag-icon">🇮🇱</span>
+                                    <span class="currency-info">
+                                        <span class="currency-code">ILS</span>
+                                        <span class="currency-name">Israeli Shekel</span>
+                                    </span>
+                                </div>
+                                <div class="currency-option" data-currency="USD">
+                                    <span class="flag-icon">🇺🇸</span>
+                                    <span class="currency-info">
+                                        <span class="currency-code">USD</span>
+                                        <span class="currency-name">US Dollar</span>
+                                    </span>
+                                </div>
+                                <div class="currency-option" data-currency="EUR">
+                                    <span class="flag-icon">🇪🇺</span>
+                                    <span class="currency-info">
+                                        <span class="currency-code">EUR</span>
+                                        <span class="currency-name">Euro</span>
+                                    </span>
+                                </div>
+                                <div class="currency-option" data-currency="GBP">
+                                    <span class="flag-icon">🇬🇧</span>
+                                    <span class="currency-info">
+                                        <span class="currency-code">GBP</span>
+                                        <span class="currency-name">British Pound</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Savings Highlight -->
+                <div class="savings-highlight" id="savings-highlight">
+                    <div class="savings-comparison">
+                        <div class="comparison-item">
+                            <span class="comparison-label">Bank rate</span>
+                            <span class="comparison-value bank" id="bank-rate">3.9234 ILS</span>
+                        </div>
+                        <div class="comparison-item">
+                            <span class="comparison-label">Our rate</span>
+                            <span class="comparison-value ours" id="our-rate">4.0234 ILS</span>
+                        </div>
+                    </div>
+                    <div class="savings-amount">
+                        <span class="savings-label">You save</span>
+                        <span class="savings-value" id="savings-value">₪100.00</span>
+                    </div>
+                </div>
+
+                <!-- Fee Breakdown -->
+                <div class="fee-breakdown">
+                    <div class="fee-row">
+                        <span>Amount we'll convert</span>
+                        <span id="fee-converted-amount">1,000.00 EUR</span>
+                    </div>
+                    <div class="fee-row">
+                        <span>Our fee (0.5%)</span>
+                        <span id="fee-amount">5.00 EUR</span>
+                    </div>
+                    <div class="fee-row total">
+                        <span>Total you pay</span>
+                        <span id="fee-total">1,005.00 EUR</span>
+                    </div>
+                </div>
+
+                <!-- Mini Chart -->
+                <div class="chart-section">
+                    <div class="chart-header">
+                        <span class="chart-title">Exchange Rate (24h)</span>
+                        <span class="chart-change positive" id="chart-change">+0.23%</span>
+                    </div>
+                    <canvas id="rate-chart" width="600" height="120"></canvas>
+                </div>
+
+                <!-- Convert Button -->
+                <button class="convert-btn" id="convert-btn">
+                    <span class="btn-icon">⚡</span>
+                    <span class="btn-text">Convert & Load to Card</span>
+                </button>
+
+                <!-- Trust Badges -->
+                <div class="trust-badges">
+                    <div class="trust-badge">
+                        <span class="badge-icon">⚡</span>
+                        <span class="badge-text">Fast Transfers</span>
+                    </div>
+                    <div class="trust-badge">
+                        <span class="badge-icon">✓</span>
+                        <span class="badge-text">Zero Hidden Fees</span>
+                    </div>
+                    <div class="trust-badge">
+                        <span class="badge-icon">🔒</span>
+                        <span class="badge-text">Institutional Security</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="comparison-section">
+            <h2 class="section-title">Compare Global Change with traditional banks</h2>
+            <div class="comparison-table-card">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Provider</th>
+                            <th>Exchange Rate</th>
+                            <th>Fee</th>
+                            <th>Recipient Gets</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparison-table-body">
+                        <tr class="highlight-row">
+                            <td class="provider-cell">
+                                <span class="provider-logo">🌍</span>
+                                <strong>Global Change</strong>
+                            </td>
+                            <td class="rate-cell" id="comp-gc-rate">4.0234</td>
+                            <td class="fee-cell">0.5%</td>
+                            <td class="amount-cell winner" id="comp-gc-amount">₪4,023.40</td>
+                        </tr>
+                        <tr>
+                            <td class="provider-cell">
+                                <span class="provider-logo">🏦</span>
+                                Bank Transfer
+                            </td>
+                            <td class="rate-cell" id="comp-bank-rate">3.9234</td>
+                            <td class="fee-cell">2.5%</td>
+                            <td class="amount-cell" id="comp-bank-amount">₪3,923.40</td>
+                        </tr>
+                        <tr>
+                            <td class="provider-cell">
+                                <span class="provider-logo">💳</span>
+                                Credit Card
+                            </td>
+                            <td class="rate-cell" id="comp-card-rate">3.8734</td>
+                            <td class="fee-cell">3.0%</td>
+                            <td class="amount-cell" id="comp-card-amount">₪3,873.40</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- My Card Modal -->
+        <div class="card-modal" id="card-modal">
+            <div class="card-modal-content">
+                <button class="modal-close-btn" id="close-card-modal">×</button>
+                <h2>Your Global Change Card</h2>
+
+                <div class="premium-card">
+                    <div class="card-chip"></div>
+                    <div class="card-logo">GLOBAL CHANGE</div>
+                    <div class="card-balance">
+                        <div class="balance-label">Available Balance</div>
+                        <div class="balance-amount" id="card-balance">₪0.00</div>
+                    </div>
+                </div>
+
+                <div class="card-actions">
+                    <button class="card-action-btn" id="load-funds-btn">
+                        <span>💰</span>
+                        Load Funds
+                    </button>
+                    <button class="card-action-btn" id="view-transactions-btn">
+                        <span>📊</span>
+                        Transactions
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Tracker (shown after conversion) -->
+        <div class="status-tracker" id="status-tracker" style="display: none;">
+            <div class="tracker-steps">
+                <div class="tracker-step active" id="step-1">
+                    <div class="step-icon">1</div>
+                    <div class="step-text">Receiving Funds</div>
+                </div>
+                <div class="tracker-line"></div>
+                <div class="tracker-step" id="step-2">
+                    <div class="step-icon">2</div>
+                    <div class="step-text">Converting at Mid-Market Rate</div>
+                </div>
+                <div class="tracker-line"></div>
+                <div class="tracker-step" id="step-3">
+                    <div class="step-icon">3</div>
+                    <div class="step-text">Loading to Black Card</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Funds Modal -->
+    <div class="wise-modal" id="load-modal">
+        <div class="wise-modal-content">
+            <button class="modal-close-btn" id="close-load">×</button>
+            <h2>Load Funds to Your Account</h2>
+            <p class="modal-subtitle">Add money to start exchanging at great rates</p>
+
+            <div class="input-group">
+                <label>Amount</label>
+                <input type="number" id="load-amount" class="wise-input" placeholder="1,000">
+            </div>
+
+            <div class="input-group">
+                <label>Currency</label>
+                <div class="currency-select-grid">
+                    <button class="currency-card" data-currency="EUR">
+                        <span class="flag-icon">🇪🇺</span>
+                        <span class="currency-code">EUR</span>
+                    </button>
+                    <button class="currency-card" data-currency="USD">
+                        <span class="flag-icon">🇺🇸</span>
+                        <span class="currency-code">USD</span>
+                    </button>
+                    <button class="currency-card" data-currency="GBP">
+                        <span class="flag-icon">🇬🇧</span>
+                        <span class="currency-code">GBP</span>
+                    </button>
+                    <button class="currency-card" data-currency="ILS">
+                        <span class="flag-icon">🇮🇱</span>
+                        <span class="currency-code">ILS</span>
+                    </button>
+                </div>
+            </div>
+
+            <button id="confirm-load" class="wise-btn" disabled>Confirm Load</button>
+        </div>
+    </div>
+
+    <!-- PIN Code Screen -->
+    <div class="pin-screen" id="pin-screen">
+        <div class="pin-screen-content">
+            <div class="pin-header">
+                <h2>🔐 Admin Access</h2>
+                <p>Enter PIN to continue</p>
+            </div>
+
+            <div class="pin-display">
+                <div class="pin-dot" id="pin-dot-1"></div>
+                <div class="pin-dot" id="pin-dot-2"></div>
+                <div class="pin-dot" id="pin-dot-3"></div>
+                <div class="pin-dot" id="pin-dot-4"></div>
+            </div>
+
+            <div class="pin-message" id="pin-message"></div>
+
+            <div class="pin-keypad">
+                <button class="pin-key" data-key="1">1</button>
+                <button class="pin-key" data-key="2">2</button>
+                <button class="pin-key" data-key="3">3</button>
+                <button class="pin-key" data-key="4">4</button>
+                <button class="pin-key" data-key="5">5</button>
+                <button class="pin-key" data-key="6">6</button>
+                <button class="pin-key" data-key="7">7</button>
+                <button class="pin-key" data-key="8">8</button>
+                <button class="pin-key" data-key="9">9</button>
+                <button class="pin-key cancel" id="pin-cancel">✕</button>
+                <button class="pin-key" data-key="0">0</button>
+                <button class="pin-key clear" id="pin-clear">⌫</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Modal -->
+    <div class="modal" id="admin-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-admin">×</button>
+            <h2>God Mode</h2>
+
+            <div class="god-mode-grid">
+                <div class="admin-stat profit">
+                    <div class="stat-label">Fee Income</div>
+                    <div class="stat-value" id="admin-profit">₪0</div>
+                </div>
+
+                <div class="admin-stat liability">
+                    <div class="stat-label">User Funds</div>
+                    <div class="stat-value" id="admin-liability">₪0</div>
+                </div>
+
+                <div class="admin-stat vault">
+                    <div class="stat-label">System Vault</div>
+                    <div class="stat-value" id="admin-vault">₪0</div>
+                </div>
+
+                <div class="admin-stat reserve">
+                    <div class="stat-label">Reserve Ratio</div>
+                    <div class="stat-value" id="admin-reserve">0%</div>
+                </div>
+
+                <div class="admin-stat transactions">
+                    <div class="stat-label">Transactions</div>
+                    <div class="stat-value" id="admin-transactions">0</div>
+                </div>
+
+                <div class="admin-stat spread">
+                    <div class="stat-label">Current Spread</div>
+                    <div class="stat-value" id="admin-spread">0%</div>
+                </div>
+            </div>
+
+            <button id="stress-test-btn" class="stress-test-btn">
+                ⚡ Run Stress Test (1000 TXs)
+            </button>
+
+            <div class="proof-of-reserves-section">
+                <div class="section-title">Proof of Reserves</div>
+                <div class="proof-grid">
+                    <div class="proof-item">
+                        <span>USD</span>
+                        <span id="proof-usd" class="proof-ratio">100%</span>
+                    </div>
+                    <div class="proof-item">
+                        <span>EUR</span>
+                        <span id="proof-eur" class="proof-ratio">100%</span>
+                    </div>
+                    <div class="proof-item">
+                        <span>ILS</span>
+                        <span id="proof-ils" class="proof-ratio">100%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="collateral-section">
+                <div class="section-title">Collateralization Ratio</div>
+                <div class="collateral-control">
+                    <input type="range" id="collateral-ratio" min="50" max="200" value="100" step="5">
+                    <div class="collateral-display">
+                        <span id="collateral-value">100%</span>
+                        <span class="collateral-label">Reserve Requirement</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-action-buttons">
+                <button id="download-balance-sheet" class="admin-action-btn">
+                    📄 Download Balance Sheet
+                </button>
+                <button id="backup-to-file" class="admin-action-btn backup">
+                    💾 Backup All Data to File
+                </button>
+            </div>
+
+            <!-- Blockchain Metrics Section -->
+            <div class="blockchain-section">
+                <div class="section-title">Blockchain Infrastructure</div>
+                <div class="blockchain-grid">
+                    <div class="blockchain-stat">
+                        <span class="stat-label">Block Height</span>
+                        <span id="block-height" class="stat-value">0</span>
+                    </div>
+                    <div class="blockchain-stat">
+                        <span class="stat-label">Pending TXs</span>
+                        <span id="pending-txs" class="stat-value">0</span>
+                    </div>
+                    <div class="blockchain-stat">
+                        <span class="stat-label">Chain Hash</span>
+                        <span id="chain-hash" class="stat-value hash-display">N/A</span>
+                    </div>
+                </div>
+                <button id="verify-chain-btn" class="verify-chain-btn">
+                    🔐 Verify Chain Integrity
+                </button>
+                <div id="chain-status" class="chain-status"></div>
+            </div>
+
+            <!-- Circuit Breaker Section -->
+            <div class="circuit-breaker-section">
+                <div class="section-title">Circuit Breaker Status</div>
+                <div class="circuit-status-display">
+                    <div class="status-indicator" id="circuit-indicator">
+                        <span class="status-dot"></span>
+                        <span id="circuit-status-text">OPERATIONAL</span>
+                    </div>
+                    <div class="circuit-metrics">
+                        <div class="metric">
+                            <span class="metric-label">Withdrawal Rate</span>
+                            <span id="withdrawal-rate" class="metric-value">0.00%</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Threshold</span>
+                            <span class="metric-value">20.00%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reserve Status Section -->
+            <div class="reserve-status-section">
+                <div class="section-title">Liquidity Reserve Status</div>
+                <div class="reserve-grid">
+                    <div class="reserve-item">
+                        <span class="reserve-currency">USD</span>
+                        <span id="reserve-status-usd" class="reserve-badge">HEALTHY</span>
+                        <span id="reserve-ratio-usd" class="reserve-ratio">33.3%</span>
+                    </div>
+                    <div class="reserve-item">
+                        <span class="reserve-currency">EUR</span>
+                        <span id="reserve-status-eur" class="reserve-badge">HEALTHY</span>
+                        <span id="reserve-ratio-eur" class="reserve-ratio">33.3%</span>
+                    </div>
+                    <div class="reserve-item">
+                        <span class="reserve-currency">ILS</span>
+                        <span id="reserve-status-ils" class="reserve-badge">HEALTHY</span>
+                        <span id="reserve-ratio-ils" class="reserve-ratio">33.3%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="wallet.js"></script>
+</body>
+</html>
